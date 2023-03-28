@@ -3,15 +3,15 @@
 /* Initial rules */
 
 // Inference rule for infering the belief requires_brightening if the target illuminance is higher than the current illuminance
-requires_brightening :- target_illuminance(Target) & current_illuminance(Current) & Target  > Current.
+requires_brightening :- target_illuminance(Target) & current_illuminance(Current) & ((Target - Current) <= 100 | (Target - Current) >= Current -100).
 
 // Inference rule for infering the belief requires_darkening if the target illuminance is lower than the current illuminance
-requires_darkening :- target_illuminance(Target) & current_illuminance(Current) & Target < Current.
+requires_darkening :- target_illuminance(Target) & current_illuminance(Current) & ((Target - Current) <= 100 | (Target - Current) >= Current -100).
 
 /* Initial beliefs */
 
 // The agent believes that the target illuminance is 400 lux
-target_illuminance(400).
+target_illuminance(350).
 
 /* Initial goals */
 
@@ -38,8 +38,8 @@ target_illuminance(400).
  * Body: the agent performs the action of turning on the lights
 */
 @increase_illuminance_with_lights_plan
-+!manage_illuminance : lights("off") & requires_brightening <-
-    .print("Turning on the lights");
++!manage_illuminance : lights("off") & requires_brightening & weather(State) & State == "cloudy" <-
+    .print("Turning on the lights, due to cloudy weather");
     turnOnLights. // performs the action of turning on the lights
 
 /* 
@@ -60,8 +60,8 @@ target_illuminance(400).
  * Body: the agent performs the action of raising the blinds
 */
 @increase_illuminance_with_blinds_plan
-+!manage_illuminance : blinds("lowered") &  requires_brightening <-
-    .print("Raising the blinds");
++!manage_illuminance : blinds("lowered") &  requires_brightening & weather(State) & State == "sunny" <-
+    .print("Raising the blinds, due to sunny weather");
     raiseBlinds. // performs the action of raising the blinds
 
 /* 
@@ -74,6 +74,13 @@ target_illuminance(400).
 +!manage_illuminance:  blinds("raised") & requires_darkening <-
     .print("Lowering the blinds");
     lowerBlinds. // performs the action of lowering the blinds
+
+
+@decrease_illuminance_with_blinds_plan_cloudy
++weather(State) : State == "cloudy" & blinds("raised") <-
+    .print("Lowering the blinds, due to cloudy weather");
+    lowerBlinds.
+
 
 /* 
  * Plan for reacting to the addition of the belief current_illuminance(Current)
@@ -114,6 +121,16 @@ target_illuminance(400).
 @lights_plan
 +lights(State) : true <- 
     .print("The lights are ", State).
+
+/* 
+ * Plan for handling if the current illuminance level is equeal to the target
+ * Triggering event: addition of goal !manage_illuminance
+ * Context: the agent believes that the current illuminance is equal to the target illuminance
+ * Body: prints the state of the current illuminance level
+*/
+@illuminance_handling_plan
++!manage_illuminance : current_illuminance(Current) & target_illuminance(Target) & (Current == Target) <-
+    .print("The current illuminance level equals the target level which is: ", Current).
 
 /* Import behavior of agents that work in CArtAgO environments */
 { include("$jacamoJar/templates/common-cartago.asl") }
